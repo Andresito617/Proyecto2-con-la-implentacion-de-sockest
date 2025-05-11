@@ -1,63 +1,85 @@
 #include <iostream>
+#include <string>
 #include <winsock2.h>
-#include <ctime>
+#include <sstream>
+#include "jugador.h"
 
-#pragma comment(lib, "ws2_32.lib")
+#define PUERTO 8080
 
-#define PORT 8080
-#define SERVER "127.0.0.1"
+void jugar(SOCKET cliente_socket) {
+    char buffer[1024];
 
-using namespace std;
+    bool seguirJugando = true;
+    int ronda = 1;
 
-void jugar(SOCKET sock);
+    while (seguirJugando) {
+        // Recibir señal para que el cliente juegue
+        int bytesRecibidos = recv(cliente_socket, buffer, 1024, 0);
+        std::string mensaje(buffer);
+        if (bytesRecibidos > 0 && mensaje == "JUEGA") {
+            // Mostrar la mano del cliente
+            Jugador clienteJugador;
+            clienteJugador.mostrarMano();
+
+            // Elección de carta del cliente
+            int eleccionCliente;
+            std::cout << "Selecciona tu carta (1-" << clienteJugador.mano.size() << "): ";
+            std::cin >> eleccionCliente;
+
+            // Verificar que la elección del cliente sea válida
+            if (eleccionCliente < 1 || eleccionCliente > clienteJugador.mano.size()) {
+                std::cout << "Selección inválida, intenta de nuevo.\n";
+                continue;
+            }
+
+            // Seleccionar carta
+            Carta cartaCliente = clienteJugador.mano[eleccionCliente - 1];
+            clienteJugador.mano.erase(clienteJugador.mano.begin() + eleccionCliente - 1);
+
+            // Enviar carta al servidor
+            std::ostringstream oss;
+            oss << cartaCliente.color << " " << cartaCliente.numero;
+            std::string mensajeCarta = oss.str();
+            send(cliente_socket, mensajeCarta.c_str(), mensajeCarta.size(), 0);
+
+            // Recibir mensaje de continuación o fin del juego
+            bytesRecibidos = recv(cliente_socket, buffer, 1024, 0);
+            std::string respuesta(buffer);
+
+            if (respuesta == "VICTORIA_SERVIDOR") {
+                std::cout << "El servidor ha ganado la partida.\n";
+                seguirJugando = false;
+            } else if (respuesta == "VICTORIA_CLIENTE") {
+                std::cout << "¡Has ganado la partida!\n";
+                seguirJugando = false;
+            } else if (respuesta == "CONTINUAR") {
+                std::cout << "La partida continúa...\n";
+            }
+        }
+
+        memset(buffer, 0, sizeof(buffer));
+    }
+}
 
 int main() {
     WSADATA wsaData;
-    SOCKET sock;
-    struct sockaddr_in server;
+    SOCKET cliente_socket;
+    sockaddr_in servidor;
 
-    // Inicializar Winsock
     WSAStartup(MAKEWORD(2, 2), &wsaData);
+    cliente_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Crear socket
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr(SERVER);
-    server.sin_port = htons(PORT);
+    servidor.sin_family = AF_INET;
+    servidor.sin_port = htons(PUERTO);
+    servidor.sin_addr.s_addr = inet_addr("192.168.20.116"); // Cambia por la IP del servidor
 
-    if (connect(sock, (struct sockaddr*)&server, sizeof(server)) == -1) {
-        cerr << "Conexi�n fallida!" << endl;
-        return -1;
-    }
+    connect(cliente_socket, (struct sockaddr*)&servidor, sizeof(servidor));
 
-    cout << "Conectado al servidor!" << endl;
+    std::cout << "Conectado al servidor.\n";
+    jugar(cliente_socket);
 
-    jugar(sock);
-
-    closesocket(sock);
+    closesocket(cliente_socket);
     WSACleanup();
 
     return 0;
-}
-
-void jugar(SOCKET sock) {
-    char buffer[1024];
-    int jugada;
-
-    while (true) {
-        // Mostrar la mano del jugador y pedir la jugada
-        cout << "Elige una carta para jugar: ";
-        cin >> jugada;
-
-        // Enviar jugada al servidor
-        snprintf(buffer, sizeof(buffer), "%d", jugada); // Convertir jugada a cadena
-        send(sock, buffer, strlen(buffer), 0);
-
-        // Recibir estado actualizado del juego
-        int recibidos = recv(sock, buffer, sizeof(buffer), 0);
-        buffer[recibidos] = '\0';
-        cout << "Estado del juego: " << buffer << endl;
-
-        // Aqu� se puede agregar l�gica para terminar el juego si el jugador gana o termina
-    }
 }

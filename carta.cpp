@@ -1,15 +1,16 @@
-#ifndef JUGADOR_H
-#define JUGADOR_H
+#include "Carta.h"
+#include <iostream>
 
-#include <vector>
-#include "carta.h"
+Carta::Carta(std::string nombre, int valor) {
+    // Inicialización
+}
 
-class Jugador {
-public:
-    std::vector<Carta> mano;
-    int puntaje;
+void Carta::mostrar() const {
+    // Lógica para mostrar la carta
+}
 
-    void mostrarMano() const;
-};
+bool Carta::operator==(const Carta& otra) const {
+    // Lógica de comparación
+}
 
-#endif // JUGADOR_H
+#endif CARTA_H

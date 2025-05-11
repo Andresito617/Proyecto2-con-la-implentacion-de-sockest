@@ -10,9 +10,9 @@ public:
     int id;
     std::string nombre;
     std::vector<int> mano; // Cartas del jugador
-
+    
     Jugador(int id, const std::string& nombre);
-    int jugarCarta(int cartaIndex); // Función para jugar una carta
+    int jugarCarta(int cartaIndex); // FunciÃ³n para jugar una carta
 };
 
 class Juego {
@@ -20,7 +20,7 @@ private:
     std::vector<Jugador> jugadores;
     int turno;
     std::mutex mtx; // Mutex para sincronizar el acceso al juego
-
+    
 public:
     Juego(int numJugadores);
     void mostrarEstado(); // Mostrar el estado del juego
@@ -30,4 +30,4 @@ public:
     Jugador& getJugador(int jugadorID); // Obtener un jugador por su ID
 };
 
-#endif // JUEGO_H#pragma once
+#endif // JUEGO_H

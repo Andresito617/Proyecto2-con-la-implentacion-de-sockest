@@ -17,7 +17,7 @@ void Juego::iniciarJuego() {
     barajarMazo();
     repartirCartas();
     turnoActual = obtenerJugadorInicial();
-    numRondas = jugadores[0].mano.size(); // Número de rondas = cartas por jugador
+    numRondas = jugadores[0].mano.size(); // NÃºmero de rondas = cartas por jugador
 }
 
 void Juego::crearMazo() {
@@ -46,7 +46,7 @@ int Juego::obtenerJugadorInicial() const {
 
 void Juego::jugarRonda() {
     cout << "--- Ronda ---" << std::endl;
-
+    
     vector<Carta> cartasJugadasRonda;
 
     cartasJugadas.clear(); // Limpiar cartas jugadas de la ronda anterior
@@ -61,22 +61,20 @@ void Juego::jugarRonda() {
         if (std::cin.fail()) {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            std::cout << "Entrada inválida. Introduce un número válido." << std::endl;
-        }
-        else if (cartaIndex < 1 || cartaIndex > jugadores[turnoActual].mano.size()) {
-            std::cout << "Número de carta fuera de rango. Introduce un número válido." << std::endl;
-        }
-        else {
+            std::cout << "Entrada invÃ¡lida. Introduce un nÃºmero vÃ¡lido." << std::endl;
+        } else if (cartaIndex < 1 || cartaIndex > jugadores[turnoActual].mano.size()) {
+            std::cout << "NÃºmero de carta fuera de rango. Introduce un nÃºmero vÃ¡lido." << std::endl;
+        } else {
             break;
         }
     }
-
+    
     Carta cartaJugada = jugadores[turnoActual].mano[cartaIndex - 1]; // Obtener la carta jugada
     jugadores[turnoActual].mano.erase(jugadores[turnoActual].mano.begin() + cartaIndex - 1); // Eliminar la carta de la mano del jugador
     cartasJugadasRonda.push_back(cartaJugada); // Agregar la carta jugada al vector
 
 
-    // Los demás jugadores juegan sus cartas
+    // Los demÃ¡s jugadores juegan sus cartas
     for (int i = 0; i < jugadores.size(); i++) {
         if (i != turnoActual) {
             while (true) {
@@ -87,20 +85,18 @@ void Juego::jugarRonda() {
                 if (std::cin.fail()) {
                     std::cin.clear();
                     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                    std::cout << "Entrada inválida. Introduce un número válido." << std::endl;
-                }
-                else if (cartaIndex < 1 || cartaIndex > jugadores[i].mano.size()) {
-                    std::cout << "Número de carta fuera de rango. Introduce un número válido." << std::endl;
-                }
-                else {
+                    std::cout << "Entrada invÃ¡lida. Introduce un nÃºmero vÃ¡lido." << std::endl;
+                } else if (cartaIndex < 1 || cartaIndex > jugadores[i].mano.size()) {
+                    std::cout << "NÃºmero de carta fuera de rango. Introduce un nÃºmero vÃ¡lido." << std::endl;
+                } else {
                     break;
                 }
             }
             cartaJugada = jugadores[i].mano[cartaIndex - 1]; // Obtener la carta jugada
             jugadores[i].mano.erase(jugadores[i].mano.begin() + cartaIndex - 1); // Eliminar la carta de la mano del jugador
             cartasJugadasRonda.push_back(cartaJugada); // Agregar la carta jugada al vector
-
-
+            
+             
         }
     }
 
@@ -122,12 +118,12 @@ void Juego::jugarRonda() {
 
     // Actualizar el turno actual
     turnoActual = ganadorRonda; // El ganador de la ronda inicia la siguiente ronda
-
-#ifdef _WIN32
-    system("cls");
-#else
-    system("clear");
-#endif
+    
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
 }
 
 int Juego::determinarGanadorRonda() {

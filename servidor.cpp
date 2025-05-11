@@ -1,90 +1,173 @@
 #include <iostream>
 #include <vector>
-#include <thread>
-#include <mutex>
+#include <string>
+#include <algorithm>
+#include <random>
+#include <sstream>
 #include <winsock2.h>
-#include <ctime>
-#include "juego.h"  // Incluir tu clase Juego
-#include "jugador.h" // Incluir la clase Jugador, si la tienes
+#include "jugador.h"
 
-#pragma comment(lib, "ws2_32.lib")
+#define PUERTO 8080
 
-#define PORT 8080
-#define MAX_PLAYERS 4
+void jugar(SOCKET nuevo_socket) {
+    // Crear mazo
+    std::vector<Carta> mazo;
+    std::vector<std::string> colores = {"rojo", "azul", "verde", "naranja"};
 
-using namespace std;
+    // Llenar el mazo con las cartas
+    for (const auto& color : colores) {
+        for (int i = 1; i <= 6; ++i) {
+            mazo.emplace_back(color, i);
+        }
+    }
 
-void gestionarJugador(SOCKET clienteSock, int jugadorID, vector<Jugador>& jugadores, mutex& mtx, Juego& juego);
+    // Barajar mazo
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(mazo.begin(), mazo.end(), g);
+
+    // Repartir cartas
+for (int i = 0; i < 5; ++i) {
+    servidorJugador.agregarCarta(mazo[i * 2]);
+    clienteJugador.agregarCarta(mazo[i * 2 + 1]);
+}
+
+bool seguirJugando = true;
+
+while (seguirJugando && servidorJugador.tieneCartas() && clienteJugador.tieneCartas()) {
+    std::cout << "Tu mano:\n";
+    servidorJugador.mostrarMano();
+
+    int eleccionServidor;
+    std::cout << "Selecciona tu carta (1-" << servidorJugador.cantidadCartas() << "): ";
+    std::cin >> eleccionServidor;
+
+    if (eleccionServidor < 1 || eleccionServidor > servidorJugador.cantidadCartas()) {
+        std::cout << "Selección inválida.\n";
+        continue;
+    }
+
+    Carta cartaServidor = servidorJugador.obtenerCarta(eleccionServidor - 1);
+    servidorJugador.eliminarCarta(eleccionServidor - 1);
+
+    // Lógica para procesar cartaCliente que recibirías del socket
+    Carta cartaCliente = /* recibir carta desde cliente */;
+    
+    // Eliminar carta cliente
+    for (int i = 0; i < clienteJugador.cantidadCartas(); ++i) {
+        if (clienteJugador.obtenerCarta(i) == cartaCliente) {
+            clienteJugador.eliminarCarta(i);
+            break;
+        }
+    }
+
+    // Lógica del juego
+    while (seguirJugando && !servidorJugador.mano.empty() && !clienteJugador.mano.empty()) {
+        std::cout << "\n--- RONDA " << ronda << " ---\n";
+        servidorJugador.mostrarMano();
+
+        // Elección de carta del servidor
+        int eleccionServidor;
+        std::cout << "Selecciona tu carta (1-" << servidorJugador.mano.size() << "): ";
+        std::cin >> eleccionServidor;
+
+        // Verificar que la elección del servidor sea válida
+        if (eleccionServidor < 1 || eleccionServidor > servidorJugador.mano.size()) {
+            std::cout << "Selección inválida, intenta de nuevo.\n";
+            continue;  // Continuar sin avanzar si la elección es inválida
+        }
+
+        // Seleccionar la carta del servidor
+        Carta cartaServidor = servidorJugador.mano[eleccionServidor - 1];
+        servidorJugador.mano.erase(servidorJugador.mano.begin() + eleccionServidor - 1);
+
+        // Enviar señal para que el cliente juegue
+        std::string mensaje = "JUEGA";
+        send(nuevo_socket, mensaje.c_str(), mensaje.size(), 0);
+
+        // Recibir carta del cliente
+        int bytesRecibidos = recv(nuevo_socket, buffer, 1024, 0);
+        if (bytesRecibidos > 0) {
+            std::istringstream iss(buffer);
+            std::string colorCliente;
+            int numeroCliente;
+            iss >> colorCliente >> numeroCliente;
+            Carta cartaCliente(colorCliente, numeroCliente);
+
+            // Eliminar carta del cliente de su mano
+            for (auto it = clienteJugador.mano.begin(); it != clienteJugador.mano.end(); ++it) {
+                if (*it == cartaCliente) {
+                    clienteJugador.mano.erase(it);
+                    break;
+                }
+            }
+
+            std::cout << "\nCarta del cliente: ";
+            cartaCliente.mostrar();
+            std::cout << "\nTu carta: ";
+            cartaServidor.mostrar();
+            std::cout << std::endl;
+
+            // Comparar cartas
+            if (cartaServidor.numero > cartaCliente.numero) {
+                servidorJugador.puntaje++;
+                std::cout << "¡Ganaste esta ronda!\n";
+            } else if (cartaServidor.numero < cartaCliente.numero) {
+                clienteJugador.puntaje++;
+                std::cout << "El cliente gana esta ronda.\n";
+            } else {
+                std::cout << "Empate en esta ronda.\n";
+            }
+
+            std::cout << "Puntaje -> Servidor: " << servidorJugador.puntaje << " | Cliente: " << clienteJugador.puntaje << "\n";
+
+            // Validar fin del juego
+            if (servidorJugador.puntaje >= 5) {
+                std::string fin = "VICTORIA_SERVIDOR";
+                send(nuevo_socket, fin.c_str(), fin.size(), 0);
+                std::cout << "¡Ganaste la partida!\n";
+                seguirJugando = false;
+            } else if (clienteJugador.puntaje >= 5) {
+                std::string fin = "VICTORIA_CLIENTE";
+                send(nuevo_socket, fin.c_str(), fin.size(), 0);
+                std::cout << "El cliente ha ganado la partida.\n";
+                seguirJugando = false;
+            } else {
+                std::string continuar = "CONTINUAR";
+                send(nuevo_socket, continuar.c_str(), continuar.size(), 0);
+            }
+        }
+
+        ronda++;
+        memset(buffer, 0, sizeof(buffer));
+    }
+}
 
 int main() {
     WSADATA wsaData;
-    SOCKET serverSock, clientSock;
-    struct sockaddr_in server, client;
-    int addrLen = sizeof(client);
+    SOCKET servidor_socket, nuevo_socket;
+    sockaddr_in servidor, cliente;
 
-    // Inicializar Winsock
     WSAStartup(MAKEWORD(2, 2), &wsaData);
+    servidor_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Crear socket
-    serverSock = socket(AF_INET, SOCK_STREAM, 0);
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(PORT);
+    servidor.sin_family = AF_INET;
+    servidor.sin_port = htons(PUERTO);
+    servidor.sin_addr.s_addr = INADDR_ANY;
 
-    // Enlazar y escuchar
-    bind(serverSock, (struct sockaddr*)&server, sizeof(server));
-    listen(serverSock, 3);
+    bind(servidor_socket, (struct sockaddr*)&servidor, sizeof(servidor));
+    listen(servidor_socket, 1);
 
-    vector<thread> hilos;
-    vector<Jugador> jugadores(MAX_PLAYERS);  // Jugadores del juego
-    mutex mtx;
+    std::cout << "Esperando conexión del cliente...\n";
+    int cliente_len = sizeof(cliente);
+    nuevo_socket = accept(servidor_socket, (struct sockaddr*)&cliente, &cliente_len);
+    std::cout << "Cliente conectado.\n";
 
-    Juego juego(MAX_PLAYERS);  // Crear el juego
+    jugar(nuevo_socket);
 
-    cout << "Servidor esperando conexiones..." << endl;
-
-    // Esperar conexiones de jugadores
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        clientSock = accept(serverSock, (struct sockaddr*)&client, &addrLen);
-        cout << "Jugador " << i + 1 << " conectado." << endl;
-
-        // Asignar un hilo para gestionar a cada jugador
-        hilos.push_back(thread(gestionarJugador, clientSock, i, ref(jugadores), ref(mtx), ref(juego)));
-    }
-
-    // Esperar que todos los hilos terminen
-    for (auto& t : hilos) {
-        t.join();
-    }
-
-    closesocket(serverSock);
+    closesocket(nuevo_socket);
+    closesocket(servidor_socket);
     WSACleanup();
 
     return 0;
-}
-
-void gestionarJugador(SOCKET clienteSock, int jugadorID, vector<Jugador>& jugadores, mutex& mtx, Juego& juego) {
-    // Aqu� gestionas la interacci�n con el jugador en el servidor
-    // Enviar el estado del juego, cartas y recibir las jugadas
-    char buffer[1024];
-    while (true) {
-        // Recibir mensaje del cliente (la jugada)
-        int recibidos = recv(clienteSock, buffer, sizeof(buffer), 0);
-        if (recibidos == SOCKET_ERROR) {
-            cout << "Error al recibir mensaje del jugador." << endl;
-            break;
-        }
-
-        buffer[recibidos] = '\0'; // Asegurarse que el buffer sea una cadena v�lida
-        cout << "Jugador " << jugadorID + 1 << " jug�: " << buffer << endl;
-
-        // Procesar la jugada y actualizar el estado del juego
-        mtx.lock();
-        // Actualizar el juego (ejemplo: agregar la jugada al juego)
-        // juego.jugarRonda(); // Aqu� ir�a la l�gica para continuar la ronda
-        mtx.unlock();
-
-        // Enviar el estado actualizado del juego al cliente
-        send(clienteSock, "Estado del juego actualizado", 26, 0);  // Simulando un estado
-    }
 }

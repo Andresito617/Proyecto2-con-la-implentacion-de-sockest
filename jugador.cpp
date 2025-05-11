@@ -1,12 +1,29 @@
-#include "jugador.h"
+#include "Jugador.h"
 #include <iostream>
 
 void Jugador::mostrarMano() const {
-    std::cout << "Tus cartas son: ";
     for (size_t i = 0; i < mano.size(); ++i) {
-        std::cout << (i + 1) << ": ";
+        std::cout << i + 1 << ". ";
         mano[i].mostrar();
-        std::cout << " "; // Añadimos un espacio entre cartas
     }
-    std::cout << std::endl << std::endl; // Salto de línea al final de la mano
+}
+
+void Jugador::agregarCarta(const Carta& carta) {
+    mano.push_back(carta);
+}
+
+Carta Jugador::obtenerCarta(int indice) const {
+    return mano[indice];
+}
+
+void Jugador::eliminarCarta(int indice) {
+    mano.erase(mano.begin() + indice);
+}
+
+int Jugador::cantidadCartas() const {
+    return mano.size();
+}
+
+bool Jugador::tieneCartas() const {
+    return !mano.empty();
 }
